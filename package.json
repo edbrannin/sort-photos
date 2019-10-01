@@ -1,0 +1,27 @@
+{
+  "name": "sort-photos",
+  "version": "1.0.0",
+  "description": "Sort photos from an iPhoto export into Dropbox-style filenames",
+  "main": "sort-photos.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/edbrannin/sort-photos.git"
+  },
+  "author": "Ed Brannin",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/edbrannin/sort-photos/issues"
+  },
+  "homepage": "https://github.com/edbrannin/sort-photos#readme",
+  "devDependencies": {
+    "jest": "^24.9.0"
+  },
+  "dependencies": {
+    "fs-extra": "^8.1.0",
+    "node-exiftool": "^2.3.0",
+    "proper-lockfile": "^4.1.1"
+  }
+}
