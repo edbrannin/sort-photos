@@ -3,30 +3,51 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-const getExtension = name => /\.[^.]+/.exec(name)[0];
+const getFilenameParts = name => {
+  const match = /(.*)\.([^.]+)/.exec(name)
+  return {
+    name: match[1],
+    ext: match[2],
+  }
+};
 
-const filenameFromDate = async (oldFilename) => {
+const filenameFromDate = async (file) => {
+  const { name, ext } = getFilenameParts(file);
   if (!(
     /IMG_.*/.test(oldFilename)
     || /DSC.*/.test(oldFilename))
   ) {
-    return [oldFilename, false];
+    return {
+      file,
+      folder: '.',
+      filename: name,
+      ext,
+      rename: false,
+    };
   }
+
   const stat = await fs.stat(oldFilename)
   const fileDate = stat.mtime;
-  const ext = getExtension(oldFilename);
   [datePart, timePart] = fileDate.toISOString().split(/[T.]/)
-  folderName = datePart.slice(0, 7)
-  const newName = `${folderName}/${datePart} ${timePart.replace(/:/g, '.')}${ext}`;
-  return [newName, true];
+  const folder = datePart.slice(0, 7)
+  const filename = `${datePart} ${timePart.replace(/:/g, '.')}`;
+  return {
+    file,
+    folder,
+    filename,
+    ext,
+    rename: true,
+  };
 }
 
+const moveFile = ({ file, foler, filename, ext, })
+
 const main = async () => {
-  const files = await fs.readdir('.');
-  oldPathNewPaths = await Promise.all(files.map(async file => [
-    file,
-    ...(await filenameFromDate(file))
-  ])).catch(err => console.error('Error getting new paths', err))
+  const filenames = await fs.readdir('.');
+  const files = await Promise.all(files.map(filenameFromDate)).catch(err => console.error('Error getting new paths', err))
+  const filesToRename = files.filter(({ rename }) => rename);
+  const directories = new Set(files.map(({ folder }) => folder))
+
   const [destinations, duplicates] = oldPathNewPaths.reduce(
     ([destinations, duplicates], [oldPath, newPath, willMove]) => {
       if (willMove) {
