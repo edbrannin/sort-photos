@@ -11,11 +11,15 @@ const getFilenameParts = name => {
   }
 };
 
+const checkIfHdr = async (file) => {
+  return false;
+}
+
 const filenameFromDate = async (file) => {
   const { name, ext } = getFilenameParts(file);
   if (!(
-    /IMG_.*/.test(oldFilename)
-    || /DSC.*/.test(oldFilename))
+    /IMG_.*/.test(file)
+    || /DSC.*/.test(file))
   ) {
     return {
       file,
@@ -26,61 +30,57 @@ const filenameFromDate = async (file) => {
     };
   }
 
-  const stat = await fs.stat(oldFilename)
+  const stat = await fs.stat(file)
   const fileDate = stat.mtime;
   [datePart, timePart] = fileDate.toISOString().split(/[T.]/)
   const folder = datePart.slice(0, 7)
-  const filename = `${datePart} ${timePart.replace(/:/g, '.')}`;
+  const isHdr = await checkIfHdr(file)
+  const hdrFlag = isHdr ? ' HDR' : ''
+  const filename = `${datePart} ${timePart.replace(/:/g, '.')}${hdrFlag}`;
   return {
     file,
     folder,
     filename,
     ext,
     rename: true,
+    isHdr,
   };
 }
 
-const moveFile = ({ file, foler, filename, ext, })
+// ./2016-01/2016-01-30 17.11.52 HDR-2.jpg
+// ./2016-01/2016-01-30 17.11.52-1.jpg
+const getFilename = ({ folder, filename, seq, ext}) => {
+  if (seq) {
+    return path.join(folder, `${filename}-${seq}.${ext}`);
+  }
+  return path.join(folder, `${filename}.${ext}`);
+}
+
+const moveFile = async ({ file, ...props }) => {
+  const toFile = getFilename(props)
+  // acquire lock
+  try {
+    if (toFile.exists) {
+      const { seq = 0 } = props;
+      await moveFile({ file, ...props, seq: seq + 1 })
+    } else {
+      await move(file, toFile);
+    }
+  } finally {
+    // release lock
+  }
+}
 
 const main = async () => {
   const filenames = await fs.readdir('.');
-  const files = await Promise.all(files.map(filenameFromDate)).catch(err => console.error('Error getting new paths', err))
+  const files = await Promise.all(filenames.map(filenameFromDate)).catch(err => console.error('Error getting new paths', err))
   const filesToRename = files.filter(({ rename }) => rename);
-  const directories = new Set(files.map(({ folder }) => folder))
-
-  const [destinations, duplicates] = oldPathNewPaths.reduce(
-    ([destinations, duplicates], [oldPath, newPath, willMove]) => {
-      if (willMove) {
-        if (destinations.has(newPath)) {
-          duplicates.add(newPath);
-        } else {
-          destinations.add(newPath);
-        }
-      }
-      return [destinations, duplicates];
-    }, [new Set(), new Set()])
-  duplicates.forEach(name => console.warn(`DUPLICATE destination: ${name}`));
-  return;
-  const directories = oldPathNewPaths.reduce((result, [oldPath, newPath, willMove]) => {
-    if (willMove) {
-      result.add(newPath.split('/')[0]);
-    }
-    return result;
-  }, new Set())
+  const directories = new Set(filesToRename.map(({ folder }) => folder))
   console.log('new Directories:', directories);
   await Promise.all(directories.map(name => fs.mkdir(name)))
-  oldPathNewPaths.forEach(async ([oldPath, newPath]) => {
-    if (oldPath === newPath) {
-      console.log(`NOT moving ${oldPath}`);
-    } else {
-      console.log(`Will move ${oldPath} to ${newPath}`);
-      if (await fs.access(newPath)) {
-        console.error(`SKIPPING, already exists: ${oldPath} -> ${newPath}`)
-        return;
-      }
-      await fs.rename(oldPath, newPath)
-    }
-  });
+  console.log('Moving files');
+  await Promise.all(filesToRename.map(moveFile));
+  console.log('Done.');
 };
 
 
