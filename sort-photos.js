@@ -3,8 +3,16 @@
 const fs = require('fs').promises;
 const path = require('path');
 
+const exiftool = require('node-exiftool')
+
+const ep = new exiftool.ExiftoolProcess()
+
 const getFilenameParts = name => {
   const match = /(.*)\.([^.]+)/.exec(name)
+  if (! match) {
+    console.warn(`Unable to parse filename from extension: ${name}`);
+    return { name, ext: '' };
+  }
   return {
     name: match[1],
     ext: match[2],
@@ -12,6 +20,8 @@ const getFilenameParts = name => {
 };
 
 const checkIfHdr = async (file) => {
+  const data = await ep.readMetadata(file, ['-File:all']);
+  console.log(data);
   return false;
 }
 
@@ -72,18 +82,29 @@ const moveFile = async ({ file, ...props }) => {
 }
 
 const main = async () => {
-  const filenames = await fs.readdir('.');
-  const files = await Promise.all(filenames.map(filenameFromDate)).catch(err => console.error('Error getting new paths', err))
-  const filesToRename = files.filter(({ rename }) => rename);
-  const directories = new Set(filesToRename.map(({ folder }) => folder))
-  console.log('new Directories:', directories);
-  await Promise.all(directories.map(name => fs.mkdir(name)))
-  console.log('Moving files');
-  await Promise.all(filesToRename.map(moveFile));
-  console.log('Done.');
+  try {
+    await ep.open();
+    const filenames = await fs.readdir('.');
+    const files = await Promise.all(filenames.map(filenameFromDate)).catch(err => console.error('Error getting new paths', err))
+    const filesToRename = files.filter(({ rename }) => rename);
+    const directories = new Set(filesToRename.map(({ folder }) => folder))
+    // console.log('new Directories:', directories);
+    // await Promise.all(directories.map(name => fs.mkdir(name)))
+    // console.log('Moving files');
+    // await Promise.all(filesToRename.map(moveFile));
+    console.log('Done.');
+  } finally {
+    await ep.close();
+  }
 };
-
 
 if (module === require.main) {
   main();
+}
+
+module.exports = {
+  filenameFromDate,
+  getFilename,
+  getFilenameParts,
+  checkIfHdr,
 }
