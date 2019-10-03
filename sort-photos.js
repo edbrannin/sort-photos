@@ -20,9 +20,13 @@ const getFilenameParts = name => {
 };
 
 const checkIfHdr = async (file) => {
-  const data = await ep.readMetadata(file, ['-File:all']);
-  console.log(data);
-  return false;
+  const { data, error } = await ep.readMetadata(file, ['-File:all']);
+  if (error) {
+    console.error(`Error getting EXIF data for file ${file}`, error)
+    return false;
+  }
+  console.log(`EXIF data for ${file}`, data[0]);
+  return data[0].HDRImageType === 'HDR Image';
 }
 
 const filenameFromDate = async (file) => {
